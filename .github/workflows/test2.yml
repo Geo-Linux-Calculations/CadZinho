@@ -1,0 +1,97 @@
+name: Test2
+
+on: workflow_dispatch
+
+env:
+  MAJOR: 0
+  MINOR: 4
+  MAN: 0
+  YEAR: 2023
+jobs:
+ test:
+  runs-on: ubuntu-latest
+
+  steps:
+    - uses: actions/checkout@v3
+    - name: configure
+      run: |
+        sudo apt-get update
+        sudo apt-get install --yes libsdl2-dev libglvnd-dev libglew-dev fuse libfuse2 libarchive-tools
+        sudo gem install fpm
+    - name: download lua source
+      run: curl -R -O http://www.lua.org/ftp/lua-5.4.4.tar.gz
+    - name: extract lua
+      run: tar zxf lua-5.4.4.tar.gz
+    - name: remove main in lua
+      run: rm lua-5.4.4/src/lua.c lua-5.4.4/src/luac.c
+    - name: copy lua sources 
+      run: cp lua-5.4.4/src/* ./src/
+    - name: get make file
+      run: cp linux/Makefile ./Makefile
+    - name: make
+      run: make
+    - name: configure for fpm
+      run: |
+        mkdir pkg
+        mkdir pkg/usr
+        mkdir pkg/usr/bin
+        mkdir pkg/usr/share
+        mkdir pkg/usr/share/cadzinho
+        cp ./cadzinho ./pkg/usr/bin/
+        cp -r ./linux/CadZinho/share/ ./pkg/usr/share/
+        cp ./LICENSE.txt ./pkg/usr/share/cadzinho/
+        cp -r ./lang/ ./pkg/usr/share/cadzinho/
+    - name: Debian linux package
+      run: |
+        cd ./pkg
+        fpm -s dir -t deb \
+          --name cadzinho \
+          --license MIT \
+          --version $MAJOR.$MINOR.$MAN \
+          --architecture native \
+          --depends sdl2 --depends glew \
+          --description "CadZinho - Minimalist computer aided design (CAD) software" \
+          --url "https://github.com/zecruel/CadZinho" \
+          --maintainer "Ezequiel Rabelo de Aguiar <ezeq.cruel@gmail.com>" ./
+        cd ..
+        mv ./pkg/*.deb ./
+        dpkg -c cadzinho_${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.MAN }}_amd64.deb
+    - name: RedHat linux package
+      run: |
+        cd ./pkg
+        fpm -s dir -t rpm \
+          --name cadzinho \
+          --license MIT \
+          --version $MAJOR.$MINOR.$MAN \
+          --architecture native \
+          --depends sdl2 --depends glew \
+          --description "CadZinho - Minimalist computer aided design (CAD) software" \
+          --url "https://github.com/zecruel/CadZinho" \
+          --maintainer "Ezequiel Rabelo de Aguiar <ezeq.cruel@gmail.com>" ./
+        cd ..
+        mv ./pkg/*.rpm ./
+    - name: Arch linux package
+      run: |
+        cd ./pkg
+        fpm -s dir -t pacman \
+          --name cadzinho \
+          --license MIT \
+          --version $MAJOR.$MINOR.$MAN \
+          --architecture native \
+          --depends sdl2 --depends glew \
+          --description "CadZinho - Minimalist computer aided design (CAD) software" \
+          --url "https://github.com/zecruel/CadZinho" \
+          --maintainer "Ezequiel Rabelo de Aguiar <ezeq.cruel@gmail.com>" ./
+        cd ..
+        mv ./pkg/*.zst ./
+    - name: List files
+      run: ls
+    - name: Upload the result
+      uses: actions/upload-artifact@v3
+      with:
+        name: uploads
+        path: |
+          cadzinho-${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.MAN }}-1-x86_64.pkg.tar.zst
+          cadzinho_${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.MAN }}_amd64.deb
+          cadzinho-${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.MAN }}-1.x86_64.rpm
+        retention-days: 5

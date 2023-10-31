@@ -8,30 +8,35 @@ endif
 
 SRC_PATH=./src/
 CC=gcc
-COMPILER_FLAGS = -g -c -DPLATFORM_$(PLATFORM)
+CFLAGS = -g -c -DPLATFORM_$(PLATFORM) -I. -I$(SRC_PATH)
+LDFLAGS = -lm -lGLEW -L/usr/lib -L.
+TARGET=cadzinho
 
 ifeq ($(PLATFORM),Darwin)
-    OPENGL_LIBS := -framework OpenGL
-    EXTRA_INCLUDE_PATHS := -I/usr/local/Cellar/lua/5.4.3/include/lua/
+    CFLAGS += -I/usr/local/Cellar/lua/5.4.3/include/lua/
+    LDFLAGS += -framework OpenGL
 else
-    OPENGL_LIBS := -lGL -lGLU
+    LDFLAGS += -lGL -lGLU
 endif
 
-LINKER_FLAGS = `sdl2-config --cflags --libs` -llua -lm $(OPENGL_LIBS) -lGLEW
-INCLUDE_PATHS = -I. -I./src/ -I/usr/include/SDL2 $(EXTRA_INCLUDE_PATHS)
-LIBRARY_PATHS = -L/usr/lib -L.
-EXE=cadzinho
+ifeq ($(PLATFORM),Linux)
+    CFLAGS += `pkg-config --cflags lua sdl2`
+    LDFLAGS += -ldl -lpthread -pthread `pkg-config --libs lua sdl2`
+else
+    CFLAGS += -I/usr/include/SDL2
+    LDFLAGS += `sdl2-config --cflags --libs` -llua
+endif
 
 SRC=$(wildcard $(SRC_PATH)*.c)
 OBJ=$(subst ./src, ./obj, $(SRC:.c=.o))
 
-all: $(SRC) $(EXE)
+all: $(SRC) $(TARGET)
 
-$(EXE): $(OBJ)
-	$(CC) $(LIBRARY_PATHS) $(LINKER_FLAGS) $(OBJ) $(LINKER_FLAGS) -o $@
+$(TARGET): $(OBJ)
+	$(CC) $^ $(LDFLAGS) -o $@
 
 ./obj/%.o: ./src/%.c
-	$(CC) $(INCLUDE_PATHS) $(COMPILER_FLAGS) -o $@ $<
+	$(CC) $(CFLAGS) -o $@ $<
 
 clean:
-	rm -rf run $(OBJ)
+	rm -rf run $(OBJ) $(TARGET)
